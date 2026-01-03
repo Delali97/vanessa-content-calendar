@@ -389,71 +389,102 @@
             
             if (!week.filmingDay) {
                 document.getElementById('filming-title').textContent = 'No Filming This Week';
-                content.innerHTML = '<p class="text-muted">This is a rest week or filming is complete.</p>';
+                document.getElementById('filming-subtitle').textContent = 'Rest week';
+                content.innerHTML = '<section class="card"><p class="text-muted">Enjoy your rest week!</p></section>';
                 return;
             }
-
             const filming = week.filmingDay;
+            const filmingDate = new Date(filming.date + 'T12:00:00');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            filmingDate.setHours(0, 0, 0, 0);
+            
+            const daysUntil = Math.ceil((filmingDate - today) / (1000 * 60 * 60 * 24));
+            
             document.getElementById('filming-title').textContent = 
                 `🎬 Filming Day: ${formatDate(filming.date)}`;
             document.getElementById('filming-subtitle').textContent = 
-                filming.saturday ? 'Saturday Session' : 'Sunday Session';
-
+                daysUntil > 0 ? `${daysUntil} days away` : 
+                daysUntil === 0 ? 'Today!' : 
+                `${Math.abs(daysUntil)} days ago`;
+        
             content.innerHTML = `
                 <section class="card">
                     <h3>⏱ Total Time: ${filming.duration} hours</h3>
                 </section>
-
                 ${filming.shoots.map((shoot, shootIdx) => `
                     <section class="card filming-shoot">
                         <h3>${shoot.type === 'series' ? `📹 Episode ${shoot.episode}: ${shoot.title}` : `💬 ${shoot.type.toUpperCase()}`}</h3>
                         <p class="text-muted">${shoot.duration} minutes</p>
                         
+                        ${shoot.concept ? `<p class="filming-concept"><em>${shoot.concept}</em></p>` : ''}
+                        
                         ${shoot.checklist && shoot.checklist.length > 0 ? `
                             <h4>Setup Checklist</h4>
                             <div class="task-list">
-                                ${shoot.checklist.map((item, idx) => `
-                                    <label class="task-item">
-                                        <input type="checkbox" 
-                                               ${item.done ? 'checked' : ''} 
-                                               onchange="toggleFilmingCheckbox(${shootIdx}, 'checklist', ${idx})">
-                                        <span class="${item.done ? 'task-done' : ''}">${item.item}</span>
-                                    </label>
-                                `).join('')}
+                                ${shoot.checklist.map((checkItem, idx) => {
+                                    const itemText = (typeof checkItem === 'object' && checkItem.item) ? checkItem.item : String(checkItem);
+                                    const itemDone = (typeof checkItem === 'object') ? checkItem.done : false;
+                                    
+                                    return `
+                                        <label class="task-item">
+                                            <input type="checkbox" 
+                                                   ${itemDone ? 'checked' : ''} 
+                                                   onchange="toggleFilmingCheckbox(${shootIdx}, 'checklist', ${idx})">
+                                            <span class="${itemDone ? 'task-done' : ''}">${itemText}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
                             </div>
                         ` : ''}
                         
-                        ${shoot.derivatives ? `
-                            <details>
-                                <summary>📦 Derivatives to capture (${shoot.derivatives.length})</summary>
-                                <ul>
+                        ${shoot.derivatives && shoot.derivatives.length > 0 ? `
+                            <details class="derivatives-section">
+                                <summary class="derivatives-summary">📦 Derivatives to capture (${shoot.derivatives.length})</summary>
+                                <ul class="derivatives-list">
                                     ${shoot.derivatives.map(d => `<li>${d}</li>`).join('')}
                                 </ul>
                             </details>
                         ` : ''}
-                        
-                        ${shoot.concept ? `<p><em>${shoot.concept}</em></p>` : ''}
                     </section>
                 `).join('')}
-
+        
                 ${filming.postFilming && filming.postFilming.length > 0 ? `
                     <section class="card">
                         <h3>Post-Filming Tasks</h3>
                         <div class="task-list">
-                            ${filming.postFilming.map((item, idx) => `
-                                <label class="task-item">
-                                    <input type="checkbox" 
-                                           ${item.done ? 'checked' : ''} 
-                                           onchange="toggleFilmingCheckbox(null, 'postFilming', ${idx})">
-                                    <span class="${item.done ? 'task-done' : ''}">${item.item}</span>
-                                </label>
-                            `).join('')}
+                            ${filming.postFilming.map((postItem, idx) => {
+                                const itemText = (typeof postItem === 'object' && postItem.item) ? postItem.item : String(postItem);
+                                const itemDone = (typeof postItem === 'object') ? postItem.done : false;
+                                
+                                return `
+                                    <label class="task-item">
+                                        <input type="checkbox" 
+                                               ${itemDone ? 'checked' : ''} 
+                                               onchange="toggleFilmingCheckbox(null, 'postFilming', ${idx})">
+                                        <span class="${itemDone ? 'task-done' : ''}">${itemText}</span>
+                                    </label>
+                                `;
+                            }).join('')}
                         </div>
                     </section>
                 ` : ''}
+                
+                <section class="card filming-output">
+                    <h3>📦 What This Produces</h3>
+                    <ul>
+                        ${filming.shoots.map(shoot => {
+                            if (shoot.type === 'series') {
+                                return `<li>1 main episode (editor delivers in 48hrs)</li>
+                                        <li>${shoot.derivatives ? shoot.derivatives.length : 6} potential derivatives</li>`;
+                            } else {
+                                return `<li>1 ${shoot.type} video (ready to post)</li>`;
+                            }
+                        }).join('')}
+                    </ul>
+                </section>
             `;
         }
-
         // === CONTENT BANK VIEW ===
         function renderBankView() {
             // Count content by status
@@ -538,9 +569,25 @@
             if (!week.filmingDay) return;
             
             if (type === 'postFilming') {
-                week.filmingDay.postFilming[idx].done = !week.filmingDay.postFilming[idx].done;
-            } else if (shootIdx !== null) {
-                week.filmingDay.shoots[shootIdx][type][idx].done = !week.filmingDay.shoots[shootIdx][type][idx].done;
+                const item = week.filmingDay.postFilming[idx];
+                if (typeof item === 'object' && item.item) {
+                    week.filmingDay.postFilming[idx].done = !week.filmingDay.postFilming[idx].done;
+                } else {
+                    week.filmingDay.postFilming[idx] = {
+                        item: typeof item === 'string' ? item : String(item),
+                        done: true
+                    };
+                }
+            } else if (shootIdx !== null && type === 'checklist') {
+                const item = week.filmingDay.shoots[shootIdx].checklist[idx];
+                if (typeof item === 'object' && item.item) {
+                    week.filmingDay.shoots[shootIdx].checklist[idx].done = !week.filmingDay.shoots[shootIdx].checklist[idx].done;
+                } else {
+                    week.filmingDay.shoots[shootIdx].checklist[idx] = {
+                        item: typeof item === 'string' ? item : String(item),
+                        done: true
+                    };
+                }
             }
             
             saveState(appState);
