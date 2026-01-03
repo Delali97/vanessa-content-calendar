@@ -2,7 +2,7 @@
   "name": "Vanessa Content Calendar",
   "short_name": "Calendar",
   "description": "12-week content execution dashboard",
-  "start_url": "/content-calendar/",
+  "start_url": "./?v=3",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1a1a1a",
